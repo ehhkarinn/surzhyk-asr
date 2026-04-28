@@ -21,7 +21,6 @@ for interval in words_tier:
 
     segment = sound.extract_part(from_time=start, to_time=end, preserve_times=False)
 
-    # MFCCs using librosa
     import librosa
     samples = segment.values[0]
     sr = int(segment.sampling_frequency)
@@ -29,13 +28,11 @@ for interval in words_tier:
     mfccs = librosa.feature.mfcc(y=samples, sr=sr, n_mfcc=13, n_fft=n_fft)
     mfcc_means = np.mean(mfccs, axis=1)
 
-    # Pitch
     pitch_obj = call(segment, "To Pitch", 0, 100, 600)
     mean_pitch = call(pitch_obj, "Get mean", 0, 0, "Hertz")
     if str(mean_pitch) == '--undefined--':
         mean_pitch = 0
 
-    # Formants
     formant_obj = call(segment, "To Formant (burg)", 0, 5, 5500, 0.025, 50)
     f1 = call(formant_obj, "Get value at time", 1, (start+end)/2, "Hertz", "Linear")
     f2 = call(formant_obj, "Get value at time", 2, (start+end)/2, "Hertz", "Linear")
