@@ -2,18 +2,15 @@ import pandas as pd
 import json
 import os
 
-# Load word-level features
 features_df = pd.read_csv("/Users/karina/Desktop/university/features_all_speakers.csv")
 print(f"Word-level features: {len(features_df)} words")
 print(f"Columns: {list(features_df.columns)}")
 print()
 
-# Load chunk metadata
 with open("/Users/karina/Desktop/university/whisper_dataset_9speakers/metadata.json", "r", encoding="utf-8") as f:
     metadata = json.load(f)
 print(f"Total chunks: {len(metadata)}")
 
-# Aggregate features per chunk
 chunk_features = []
 
 for chunk in metadata:
@@ -21,7 +18,6 @@ for chunk in metadata:
     chunk_start = chunk["start"]
     chunk_end = chunk["end"]
 
-    # Find all words from this speaker within this chunk's time range
     mask = (
         (features_df["speaker"] == speaker) &
         (features_df["start"] >= chunk_start) &
@@ -33,10 +29,8 @@ for chunk in metadata:
         print(f"Warning: no words found for {speaker} chunk {chunk_start}-{chunk_end}")
         continue
 
-    # Get MFCC columns
     mfcc_cols = [f"mfcc_{i}" for i in range(1, 14)]
 
-    # Aggregate — mean, std, max
     row = {
         "file": chunk["file"],
         "speaker": speaker,
@@ -50,7 +44,6 @@ for chunk in metadata:
         "mean_f2": chunk_words["f2_mean"].mean(),
     }
 
-    # Add mean and std for each MFCC
     for col in mfcc_cols:
         if col in chunk_words.columns:
             row[f"mean_{col}"] = chunk_words[col].mean()
@@ -58,7 +51,6 @@ for chunk in metadata:
 
     chunk_features.append(row)
 
-# Save
 chunk_df = pd.DataFrame(chunk_features)
 output_path = "/Users/karina/Desktop/university/chunk_features.csv"
 chunk_df.to_csv(output_path, index=False)
