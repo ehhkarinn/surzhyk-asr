@@ -13,7 +13,6 @@ dataset_dir = "/Users/karina/Desktop/university/whisper_dataset_9speakers"
 with open(os.path.join(dataset_dir, "metadata.json"), "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
-# Use last 20% as test set — same split as training
 split = int(len(metadata) * 0.8)
 test_data = metadata[split:]
 print(f"Test chunks: {len(test_data)}")
