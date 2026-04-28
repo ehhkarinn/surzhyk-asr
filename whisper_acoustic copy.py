@@ -12,7 +12,6 @@ from torch.optim import AdamW
 import evaluate
 import re
 
-# ── helpers ──────────────────────────────────────────────────────────────────
 wer_metric = evaluate.load("wer")
 
 def normalise(text):
@@ -20,7 +19,6 @@ def normalise(text):
     text = re.sub(r'[^\w\s]', '', text)
     return text
 
-# ── data ─────────────────────────────────────────────────────────────────────
 dataset_dir = "/Users/karina/Desktop/university/whisper_dataset_9speakers"
 with open(os.path.join(dataset_dir, "metadata.json"), "r", encoding="utf-8") as f:
     metadata = json.load(f)
@@ -35,7 +33,6 @@ acoustic_cols = [c for c in acoustic_cols if c in chunk_features.columns]
 print(f"Using {len(acoustic_cols)} acoustic features")
 print(f"Total chunks: {len(metadata)}")
 
-# ── dataset ──────────────────────────────────────────────────────────────────
 processor = WhisperProcessor.from_pretrained(
     "openai/whisper-small", language="ukrainian", task="transcribe"
 )
@@ -50,7 +47,6 @@ class SurzhykDataset(Dataset):
     def __getitem__(self, idx):
         item = self.items[idx]
 
-        # Audio
         audio, sr = sf.read(os.path.join(dataset_dir, "audio", item["file"]))
         audio = audio.astype(np.float32)
         if sr != 16000:
@@ -58,11 +54,9 @@ class SurzhykDataset(Dataset):
         input_features = processor(audio, sampling_rate=16000,
                                    return_tensors="pt").input_features.squeeze(0)
 
-        # Labels
         labels = processor.tokenizer(item["text"],
                                      return_tensors="pt").input_ids.squeeze(0)
 
-        # Acoustic features
         match = chunk_features[chunk_features["file"] == item["file"]]
         if match.empty:
             acoustic = torch.zeros(len(acoustic_cols))
@@ -73,7 +67,6 @@ class SurzhykDataset(Dataset):
 
         return input_features, labels, acoustic
 
-# train/test split
 split = int(len(metadata) * 0.8)
 train_data = metadata[:split]
 test_data  = metadata[split:]
@@ -97,42 +90,35 @@ train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True,
 test_loader  = DataLoader(test_dataset,  batch_size=2, shuffle=False,
                           collate_fn=collate_fn)
 
-# ── model ─────────────────────────────────────────────────────────────────────
 class AcousticWhisper(nn.Module):
     def __init__(self, n_acoustic):
         super().__init__()
         self.whisper = WhisperForConditionalGeneration.from_pretrained(
             "openai/whisper-small"
         )
-        d_model = self.whisper.config.d_model   # 512 for whisper-small
+        d_model = self.whisper.config.d_model   
 
-        # project acoustic features → same dim as encoder hidden states
         self.acoustic_proj = nn.Sequential(
             nn.Linear(n_acoustic, 128),
             nn.ReLU(),
             nn.Linear(128, d_model),
         )
 
-        # gate: learn how much to trust acoustic vs audio
         self.gate = nn.Linear(d_model * 2, d_model)
 
     def forward(self, input_features, labels, acoustic_feats):
-        # Whisper encoder
+
         enc_out = self.whisper.model.encoder(input_features)
-        hidden  = enc_out.last_hidden_state          # (B, T, d_model)
+        hidden  = enc_out.last_hidden_state          
 
-        # Acoustic projection → (B, 1, d_model) broadcast over T
-        a_emb = self.acoustic_proj(acoustic_feats).unsqueeze(1)  # (B,1,d_model)
-        a_emb = a_emb.expand_as(hidden)                          # (B,T,d_model)
+        a_emb = self.acoustic_proj(acoustic_feats).unsqueeze(1)  
+        a_emb = a_emb.expand_as(hidden)                          
 
-        # Gated fusion
-        fused = self.gate(torch.cat([hidden, a_emb], dim=-1))    # (B,T,d_model)
+        fused = self.gate(torch.cat([hidden, a_emb], dim=-1))   
         fused = torch.tanh(fused)
 
-        # Replace encoder output with fused representation
         enc_out.last_hidden_state = fused
 
-        # Whisper decoder
         out = self.whisper(
             encoder_outputs=enc_out,
             labels=labels,
@@ -152,15 +138,12 @@ class AcousticWhisper(nn.Module):
             forced_decoder_ids=forced_decoder_ids,
         )
 
-# ── training ──────────────────────────────────────────────────────────────────
 n_acoustic = len(acoustic_cols)
 model = AcousticWhisper(n_acoustic)
 
-# Freeze all Whisper weights
 for param in model.whisper.parameters():
     param.requires_grad = False
 
-# Only train the new fusion layers
 trainable = [p for p in model.parameters() if p.requires_grad]
 print(f"Trainable parameters: {sum(p.numel() for p in trainable):,}")
 optimizer = AdamW(trainable, lr=1e-4)
@@ -174,7 +157,6 @@ best_wer = float("inf")
 num_epochs = 20
 
 for epoch in range(num_epochs):
-    # train
     model.train()
     total_loss = 0
     for input_features, labels, acoustics in train_loader:
@@ -185,7 +167,7 @@ for epoch in range(num_epochs):
         total_loss += loss.item()
     avg_loss = total_loss / len(train_loader)
 
-    # evaluate
+
     model.eval()
     preds, refs = [], []
     with torch.no_grad():
