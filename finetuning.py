@@ -11,23 +11,19 @@ from transformers import (
 )
 import evaluate
 
-# Load metadata
 dataset_dir = "/Users/karina/Desktop/university/whisper_dataset_9speakers"
 with open(os.path.join(dataset_dir, "metadata.json"), "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
-# Add full audio paths
 for item in metadata:
     item["audio"] = os.path.join(dataset_dir, "audio", item["file"])
 
-# Split into train and test (80/20)
 split = int(len(metadata) * 0.8)
 train_data = metadata[:split]
 test_data = metadata[split:]
 
 print(f"Train: {len(train_data)} chunks, Test: {len(test_data)} chunks")
 
-# Load processor and model
 print("Loading Whisper...")
 processor = WhisperProcessor.from_pretrained("openai/whisper-small", language="ukrainian", task="transcribe")
 model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-small")
@@ -59,7 +55,6 @@ test_rows = prepare_dataset(test_data)
 train_dataset = Dataset.from_list(train_rows)
 test_dataset = Dataset.from_list(test_rows)
 
-# Data collator
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 
@@ -78,7 +73,6 @@ class DataCollator:
 
 data_collator = DataCollator(processor=processor)
 
-# Metric
 wer_metric = evaluate.load("wer")
 
 def compute_metrics(pred):
@@ -90,7 +84,6 @@ def compute_metrics(pred):
     wer = wer_metric.compute(predictions=pred_str, references=label_str)
     return {"wer": wer}
 
-# Training arguments
 training_args = Seq2SeqTrainingArguments(
     output_dir="/Users/karina/Desktop/university/whisper_finetuned_v3",
     num_train_epochs=10,
@@ -110,7 +103,6 @@ training_args = Seq2SeqTrainingArguments(
     report_to="none"
 )
 
-# Trainer
 trainer = Seq2SeqTrainer(
     model=model,
     args=training_args,
