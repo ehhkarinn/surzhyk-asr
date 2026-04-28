@@ -19,7 +19,7 @@ dataset_dir = "/Users/karina/Desktop/university/whisper_dataset_unseen3"
 with open(os.path.join(dataset_dir, "metadata.json"), "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
-# Change speaker name here
+
 speaker = "YULDE10"
 metadata = [item for item in metadata if item["speaker"] == "YULDE10"]
 print(f"Testing {len(metadata)} chunks from {speaker}")
