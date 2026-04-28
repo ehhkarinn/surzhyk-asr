@@ -18,13 +18,11 @@ def normalise(text):
     text = re.sub(r'[^\w\s]', '', text)
     return text
 
-# Load unseen dataset
 dataset_dir = "/Users/karina/Desktop/university/whisper_dataset_unseen3"
 with open(os.path.join(dataset_dir, "metadata.json"), "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
-# Load chunk features for unseen speakers
-# First extract features for unseen speakers
+
 import parselmouth
 import textgrid
 from parselmouth.praat import call
@@ -82,12 +80,10 @@ def extract_features_for_unseen():
 print("Extracting features for unseen speakers...")
 unseen_word_features = extract_features_for_unseen()
 
-# Aggregate to chunk level
 acoustic_cols = ["mean_pitch", "std_pitch", "mean_f1", "mean_f2"] + \
                 [f"mean_mfcc_{i}" for i in range(1, 14)] + \
                 [f"std_mfcc_{i}" for i in range(1, 14)]
 
-# Build chunk features for unseen
 chunk_rows = []
 for item in metadata:
     speaker = item["speaker"]
@@ -115,12 +111,10 @@ for item in metadata:
 unseen_chunk_features = pd.DataFrame(chunk_rows).fillna(0)
 actual_acoustic_cols = [c for c in acoustic_cols if c in unseen_chunk_features.columns]
 
-# Fit scaler on training features
 train_features = pd.read_csv("/Users/karina/Desktop/university/chunk_features.csv")
 scaler = StandardScaler()
 scaler.fit(train_features[actual_acoustic_cols].fillna(0).values)
 
-# Load models
 processor = WhisperProcessor.from_pretrained("openai/whisper-small", language="ukrainian", task="transcribe")
 forced_ids = processor.get_decoder_prompt_ids(language="ukrainian", task="transcribe")
 
@@ -139,7 +133,6 @@ acoustic_adapter.load_state_dict(
 base_model.eval()
 acoustic_adapter.eval()
 
-# Evaluate
 preds_base, preds_acoustic, refs = [], [], []
 
 for i, item in enumerate(metadata):
@@ -149,7 +142,7 @@ for i, item in enumerate(metadata):
         audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
     inputs = processor(audio, sampling_rate=16000, return_tensors="pt")
 
-    # Get acoustic features for this chunk
+
     match = unseen_chunk_features[unseen_chunk_features["file"] == item["file"]]
     if match.empty:
         acoustic = np.zeros(len(actual_acoustic_cols))
@@ -159,11 +152,10 @@ for i, item in enumerate(metadata):
     acoustic_tensor = torch.tensor(acoustic, dtype=torch.float32).unsqueeze(0)
 
     with torch.no_grad():
-        # Baseline (no acoustic)
+    
         ids_base = base_model.generate(inputs.input_features, forced_decoder_ids=forced_ids)
         pred_base = processor.batch_decode(ids_base, skip_special_tokens=True)[0]
 
-        # With acoustic adapter
         enc_out = base_model.model.encoder(inputs.input_features)
         hidden = enc_out.last_hidden_state
         a_vec = acoustic_adapter(acoustic_tensor).unsqueeze(1)
