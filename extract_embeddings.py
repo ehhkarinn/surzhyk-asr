@@ -41,11 +41,10 @@ for item in metadata:
     })
     print(f"Processed {item['file']} — embedding shape: {embedding.shape}")
 
-# Save
+
 np.save("/Users/karina/Desktop/university/whisper_embeddings.npy", 
         np.array([e["embedding"] for e in embeddings]))
 
-# Save metadata separately
 with open("/Users/karina/Desktop/university/whisper_embeddings_meta.json", "w") as f:
     json.dump([{k: v for k, v in e.items() if k != "embedding"} for e in embeddings], f, 
               ensure_ascii=False, indent=2)
