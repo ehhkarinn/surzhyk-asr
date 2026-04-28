@@ -13,7 +13,6 @@ dataset_dir = "/Users/karina/Desktop/university/whisper_dataset"
 with open(os.path.join(dataset_dir, "metadata.json"), "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
-# Use same test split as training (last 20%)
 split = int(len(metadata) * 0.8)
 test_data = metadata[split:]
 
@@ -37,7 +36,6 @@ def transcribe(model, processor, test_data):
     wer = wer_metric.compute(predictions=predictions, references=references)
     return wer, predictions, references
 
-# Baseline Whisper
 print("=== BASELINE WHISPER ===")
 processor_base = WhisperProcessor.from_pretrained("openai/whisper-small", language="ukrainian", task="transcribe")
 model_base = WhisperForConditionalGeneration.from_pretrained("openai/whisper-small")
@@ -45,7 +43,6 @@ model_base.config.forced_decoder_ids = processor_base.get_decoder_prompt_ids(lan
 wer_base, preds_base, refs = transcribe(model_base, processor_base, test_data)
 print(f"Baseline WER: {wer_base:.4f} ({wer_base*100:.2f}%)\n")
 
-# Fine-tuned Whisper
 print("=== FINE-TUNED WHISPER ===")
 try:
     processor_ft = WhisperProcessor.from_pretrained("/Users/karina/Desktop/university/whisper_finetuned/final", language="ukrainian", task="transcribe")
